@@ -254,8 +254,7 @@ void receiveRFData ()
   unsigned long lastMsgReceived = 0;
   bool messageReady = false;
   RadioPayloadType messageReceived;
-  
-  
+    
   memset (&messageReceived, 0, RadioPayloadTypeSize);
 
   while (radio.available())
@@ -265,8 +264,26 @@ void receiveRFData ()
     messageReady = true;
   }
 
+  //Ensure that all channels are turned off when no data has been received for more than a second
+  if ((messageReady == false) && (lastMsgReceived > 0))
+  {
+    if ((millis() - lastMsgReceived) > 1000UL)
+    {
+      digitalWrite (RED_PIN, HIGH);
+      digitalWrite (GREEN_PIN, LOW);      
+
+      resetInBuffer();
+      bytesReceived = CONTROLLER_CHANNEL_COUNT;
+      processBuffer();
+      
+      lastMsgReceived = 0;
+    }
+  }
+
   if (messageReady == true)
   {      
+    lastMsgReceived = millis();
+
     if (hadError)
     {
       digitalWrite (RED_PIN, (digitalRead(RED_PIN) == HIGH) ? LOW : HIGH);
@@ -299,6 +316,10 @@ void receiveRFData ()
     {
       Serial.println ("E1");
       hadError = true;
+    }
+    else if (messageReceived.dyntag == lastDyntag)
+    {
+      //This is a retransmit, and we handled the last message, so ignore it
     }
     else if (lastDyntag > 0)
     {
